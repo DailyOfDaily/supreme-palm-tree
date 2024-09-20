@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="http://code.jquery.com/jquery-latest.min.js"></script>
+    <title>메이플 API</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        #search-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            margin-bottom: 20px;
+            padding: 10px;
+            width: 90%;
+        }
+        #search-area {
+            display: flex;
+            align-items: center;
+            margin-right: 0px;
+        }
+        #search {
+            padding: 5px;
+            margin-right: 0px;
+        }
+        #searchButton {
+            padding: 5px;
+        }
+        #button-area {
+            position: absolute;
+            right: 0;
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 5px;
+            margin-left : 7.5px;
+            margin-right: 7.5px;
+        }
+
+        /* 화면이 좁아질 때 레이아웃 조정 */
+        @media (max-width: 768px) {
+            #search-container {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            #search-area {
+                margin-right: 0; /* 검색 입력과 버튼의 오른쪽 여백 제거 */
+            }
+
+            #button-area {
+                position: static; /* 버튼 영역의 위치를 절대 위치에서 static으로 변경 */
+                margin-top: 20px; /* 버튼과 검색 영역 사이의 여백 */
+            }
+        }
+
+        #results {
+            display: inline-block;
+            text-align: center;
+            max-width: 80%;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0 auto;
+        }
+
+        table {
+            border-collapse: collapse;
+            margin: 20px auto;
+            width: 500px;
+            table-layout: auto;
+        }
+
+        table, th, td {
+            border: 1px solid black;
+        }
+
+        td {
+            text-align: center;
+            height: 100px;
+            min-width: 50px;
+        }
+
+        .equipment-info {
+            display: none;
+            position: absolute;
+            background-color: white;
+            border: 1px solid black;
+            padding: 10px;
+            z-index: 10;
+            font-size: 12px;
+        }
+
+        .tooltip {
+            display: none; /* 기본적으로 툴팁을 숨김 */
+            position: absolute;
+            bottom: 120%; /* 아이템 이미지 위에 툴팁이 나타나도록 설정 */
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            padding: 10px;
+            border:1px;
+            border-radius: 5px;
+            /* white-space: pre-line;  */
+            /* 여러 줄 설명을 지원 */
+            width: 200px;
+            text-align: center;
+            z-index: 999; /* 툴팁이 다른 요소 위에 표시되도록 설정 */
+        }
+
+        .item-box img {
+            cursor: pointer; /* 마우스 포인터가 이미지 위에 있을 때 포인터 표시 */
+            width: 50px;
+        }
+
+        .item-info {
+            display: none; /* 기본적으로 툴팁을 숨김 */
+            position: absolute;
+            bottom: 120%; /* 아이템 이미지 위에 툴팁이 나타나도록 설정 */
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            padding: 10px;
+            border:1px;
+            border-radius: 5px;
+            /* white-space: pre-line;  */
+            /* 여러 줄 설명을 지원 */
+            width: 300px;
+            text-align: center;
+            z-index: 999; /* 툴팁이 다른 요소 위에 표시되도록 설정 */
+        }
+
+        html{
+            /* 드래그 방지 */
+            -ms-user-select: none;
+            -moz-user-select: -moz-none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            user-select: none;
+        }
+
+                #search-container {
+            display: flex;
+            justify-content: space-between; /* Space between items */
+            align-items: center; /* Center items vertically */
+            padding: 10px;
+        }
+        #search-area {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+        }
+        #search {
+            padding: 5px;
+            margin-right: 10px;
+        }
+        #searchButton {
+            padding: 5px;
+        }
+        #button-area {
+            display: flex;
+            gap: 10px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>메이플 캐릭터 검색</h1>
+    <div id="search-container">
+        <div id="search-area">
+            <input type="text" id="search" placeholder="캐릭터 이름 입력">
+            <input type="button" id="searchButton" value="검색">
+        </div>
+        <div id="button-area">
+            <button><a href="https://dailyofdaily.github.io/MainScreen/" style="color: black; text-decoration: none;">메인화면</a></button>
+            <button><a href="https://dfproject.onrender.com/" style="color: black; text-decoration: none;">던파</a></button>
+        </div>
+    </div>
+
+    <!-- 검색 결과를 표시할 컨테이너 -->
+    <div id="results"></div>
+
+    <div id="tooltip" class="equipment-info"></div>
+
+    <script>
+        const API_KEY = 'test_cb3aaae30daf198070fc06c8d5c2165a9b5b16a20b0abc2a7f949c6844b55f32efe8d04e6d233bd35cf2fabdeb93fb0d'; // API Key 입력
+
+        document.querySelectorAll('[contenteditable]').forEach(el => {
+            el.setAttribute('contenteditable', 'false');
+        });
+
+        // 숫자 천 단위로 쉼표 추가
+        async function formatNumber(number) {
+            return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+
+        // 엔터 키가 눌리면 submit 버튼을 클릭하는 동작 추가
+        $('#search').keydown(function(event) {
+            if (event.key === "Enter") {
+                $('#searchButton').click();  // 엔터가 눌리면 검색 버튼을 클릭
+            }
+        });
+
+
+        async function fetchCharacterInfo() {
+            try {
+                $('#results').empty();
+                const characterName = $('#search').val();
+
+                // 1 번째 API 호출 - 캐릭터명으로 OCID 검색
+                const ocidResponse = await $.ajax({
+                    method: "GET",
+                    url: `https://open.api.nexon.com/maplestory/v1/id?character_name=${characterName}`,
+                    headers: {
+                        'accept': 'application/json',
+                        'x-nxopen-api-key': API_KEY
+                    }
+                });
+                console.log("성공1 : ", ocidResponse);
+                const ocid = ocidResponse.ocid;
+
+                if (!ocid) {
+                    $('#results').append("<p>캐릭터를 찾을 수 없습니다.</p>");
+                    return;
+                }
+
+        // 2 번째 API 호출 - OCID로 캐릭터 기본 정보 검색
+        const characterData = await $.ajax({
+            method: "GET",
+            url: `https://open.api.nexon.com/maplestory/v1/character/basic?ocid=${ocid}`,
+            headers: {
+                'accept': 'application/json',
+                'x-nxopen-api-key': API_KEY
+            }
+        });
+        console.log("성공2 : ", characterData);
+
+        // 캐릭터 기본 정보 표시
+        $('#results').append(`<img src="${characterData.character_image}" style="width: 200px; margin-bottom: 10px;" />`);
+        $('#results').append("<br>");
+        $('#results').append(`<span style="font-weight: bold; font-size: 30px; margin-bottom: 5px; display: block;">${characterData.character_name}</span><br>`);
+        $('#results').append(`<span style="font-weight: bold; display: block;">서버 : ${characterData.world_name}</span><br>`);
+        $('#results').append(`<span style="font-weight: bold; display: block;">직업 : ${characterData.character_class}</span><br>`);
+        $('#results').append(`<span style="font-weight: bold; display: block;">레벨 : ${formatNumber(characterData.character_level)}</span><br>`);
+        $('#results').append(`<span style="font-weight: bold; display: block;">길드 : ${characterData.character_guild_name || '없음'}</span><br>`);
+
+        // 3 번째 API 호출 - OCID로 캐릭터 종합 능력치 검색
+        const statData = await $.ajax({
+            method: "GET",
+            url: `https://open.api.nexon.com/maplestory/v1/character/stat?ocid=${ocid}`,
+            headers: {
+                'accept': 'application/json',
+                'x-nxopen-api-key': API_KEY
+            }
+        });
+        console.log("능력치 데이터 : ", statData);
+        $('#results').append("<br>");
+        $('#results').append("<h2>캐릭터 종합 능력치</h2>");
+
+        // 퍼센트가 붙는 능력치 항목 목록
+        const percentageStats = [
+            '보스 몬스터 데미지', '방어율 무시', '크리티컬 확률', '크리티컬 데미지', '최종 데미지',
+            '데미지', '아이템 드롭률', '메소 획득량', '버프 지속시간', '상태이상 내성', '스탠스'
+        ];
+
+
+        // 테이블 시작
+        let table = `<table border="1" cellpadding="0" cellspacing="0">
+                        <thead>
+                            <tr>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+
+        const stats = [
+            { name: '전투력', stat: statData.final_stat.find(s => s.stat_name === '전투력') },
+            { name: '스탯공격력', stat: statData.final_stat.find(s => s.stat_name === '스탯공격력') },
+            { name: '보스 몬스터 데미지', stat: statData.final_stat.find(s => s.stat_name === '보스 몬스터 데미지') },
+            { name: '방어율 무시', stat: statData.final_stat.find(s => s.stat_name === '방어율 무시') },
+            { name: '크리티컬 확률', stat: statData.final_stat.find(s => s.stat_name === '크리티컬 확률') },
+            { name: '크리티컬 데미지', stat: statData.final_stat.find(s => s.stat_name === '크리티컬 데미지') },
+            { name: '최종 데미지', stat: statData.final_stat.find(s => s.stat_name === '최종 데미지') },
+            { name: '데미지', stat: statData.final_stat.find(s => s.stat_name === '데미지') },
+            { name: '힘', stat: statData.final_stat.find(s => s.stat_name === '힘') },
+            { name: '민첩', stat: statData.final_stat.find(s => s.stat_name === '민첩') },
+            { name: '지능', stat: statData.final_stat.find(s => s.stat_name === '지능') },
+            { name: '행운', stat: statData.final_stat.find(s => s.stat_name === '행운') },
+            { name: '아이템 드롭률', stat: statData.final_stat.find(s => s.stat_name === '아이템 드롭률') },
+            { name: '메소 획득량', stat: statData.final_stat.find(s => s.stat_name === '메소 획득량') },
+            { name: '버프 지속시간', stat: statData.final_stat.find(s => s.stat_name === '버프 지속시간') },
+            { name: '공격 속도', stat: statData.final_stat.find(s => s.stat_name === '공격 속도') },
+            { name: '스타포스', stat: statData.final_stat.find(s => s.stat_name === '스타포스') },
+            { name: '아케인포스', stat: statData.final_stat.find(s => s.stat_name === '아케인포스') },
+            { name: '어센틱포스', stat: statData.final_stat.find(s => s.stat_name === '어센틱포스') },
+            { name: 'HP', stat: statData.final_stat.find(s => s.stat_name === 'HP') },
+            { name: 'MP', stat: statData.final_stat.find(s => s.stat_name === 'MP') },
+            { name: '상태이상 내성', stat: statData.final_stat.find(s => s.stat_name === '상태이상 내성') },
+            { name: '스탠스', stat: statData.final_stat.find(s => s.stat_name === '스탠스') },
+        ];
+
+        stats.forEach(item => {
+            if (item.stat) {
+                // 퍼센트가 붙는 항목인지 확인
+                const value = percentageStats.includes(item.name)
+                    ? `${formatNumber(item.stat.stat_value)}%`
+                    : formatNumber(item.stat.stat_value);
+
+                // 첫 번째 열의 너비를 200px로 고정
+                table += `<tr>
+                            <td style="width: 300px; height: 40px;">${item.name}</td>
+                            <td style="width: 200px; height: 40px;">${value}</td>
+                        </tr>`;
+            }
+        });
+
+        table += `</tbody></table>`;
+
+        // 테이블 추가
+        $('#results').append(table);
+
+// 4 번째 API 호출 - OCID로 캐릭터 장착 장비 검색
+const equipmentData = await $.ajax({
+    method: "GET",
+    url: `https://open.api.nexon.com/maplestory/v1/character/item-equipment?ocid=${ocid}`,
+    headers: {
+        'accept': 'application/json',
+        'x-nxopen-api-key': API_KEY
+    }
+});
+console.log("장비 데이터 : ", equipmentData);
+
+if (equipmentData.item_equipment && Array.isArray(equipmentData.item_equipment)) {
+    $('#results').append("<br>");
+    $('#results').append("<h2>장비 아이템</h2>");
+    let tableHTML = `
+        <table>
+            <tr>
+                <td id="반지1"></td><td></td><td id="모자"></td><td></td><td id="엠블렘"></td>
+            </tr>
+            <tr>
+                <td id="반지2"></td><td id="펜던트"></td><td id="얼굴장식"></td><td></td><td id="뱃지"></td>
+            </tr>
+            <tr>
+                <td id="반지3"></td><td id="펜던트2"></td><td id="눈장식"></td><td id="귀고리"></td><td id="훈장"></td>
+            </tr>
+            <tr>
+                <td id="반지4"></td><td id="무기"></td><td id="상의"></td><td id="어깨장식"></td><td id="보조무기"></td>
+            </tr>
+            <tr>
+                <td id="포켓아이템"></td><td id="벨트"></td><td id="하의"></td><td id="장갑"></td><td id="망토"></td>
+            </tr>
+            <tr>
+                <td></td><td></td><td id="신발"></td><td></td><td id="기계심장"></td>
+            </tr>
+        </table>
+    `;
+    $('#results').append(tableHTML);
+
+    equipmentData.item_equipment.forEach(equip => {
+        const slotId = equip.item_equipment_slot.replace(/ /g, ''); // 공백 제거
+        const equipInfo = JSON.stringify({
+            name: equip.item_name,
+            part: equip.item_equipment_slot,
+            str: equip.item_total_option.str || 'N/A',
+            dex: equip.item_total_option.dex || 'N/A',
+            int: equip.item_total_option.int || 'N/A',
+            luk: equip.item_total_option.luk || 'N/A',
+            attack_power: equip.item_total_option.attack_power || 'N/A',
+            magic_power: equip.item_total_option.magic_power || 'N/A',
+            armor: equip.item_total_option.armor || 'N/A',
+            potential_1: equip.potential_option_1 ? equip.potential_option_1.split(',').join('<br>') : '',
+            potential_2: equip.potential_option_2 ? equip.potential_option_2.split(',').join('<br>') : '',
+            potential_3: equip.potential_option_3 ? equip.potential_option_3.split(',').join('<br>') : '',
+            additional_1: equip.additional_potential_option_1 ? equip.additional_potential_option_1.split(',').join('<br>') : '',
+            additional_2: equip.additional_potential_option_2 ? equip.additional_potential_option_2.split(',').join('<br>') : '',
+            additional_3: equip.additional_potential_option_3 ? equip.additional_potential_option_3.split(',').join('<br>') : ''
+        });
+
+        const equipHtml = `
+            <div class="item-box" style="position:relative;">
+                <img src="${equip.item_icon}" style="width:50px;" alt="${equip.item_name}" title="${equip.item_name}" data-info='${equipInfo}'>
+                <div class="item-info" style="display:none;">
+                    <strong>${equip.item_name}</strong><br><br>
+                    ${equip.item_equipment_slot}<br><br>
+                    힘: ${equip.item_total_option.str || 'N/A'}, 민첩: ${equip.item_total_option.dex || 'N/A'}<br>
+                    지능: ${equip.item_total_option.int || 'N/A'}, 행운: ${equip.item_total_option.luk || 'N/A'}<br><br>
+                    공격력: ${equip.item_total_option.attack_power || 'N/A'}, 마력: ${equip.item_total_option.magic_power || 'N/A'}, 방어력: ${equip.item_total_option.armor || 'N/A'}<br><br>
+                    ${equip.potential_option_1 ? '잠재능력: ' + equip.potential_option_grade + '<br>' + equip.potential_option_1.split(',').join('<br>') + '<br>' : ''}
+                    ${equip.potential_option_2 ? equip.potential_option_2.split(',').join('<br>') + '<br>' : ''}
+                    ${equip.potential_option_3 ? equip.potential_option_3.split(',').join('<br>') + '<br>' : ''}<br>
+                    ${equip.additional_potential_option_1 ? '에디셔널: ' + equip.additional_potential_option_grade + '<br>' + equip.additional_potential_option_1.split(',').join('<br>') + '<br>' : ''}
+                    ${equip.additional_potential_option_2 ? equip.additional_potential_option_2.split(',').join('<br>') + '<br>' : ''}
+                    ${equip.additional_potential_option_3 ? equip.additional_potential_option_3.split(',').join('<br>') + '<br>' : ''}
+                </div>
+            </div>
+        `;
+
+        $(`#${slotId}`).html(equipHtml);
+    });
+
+    // 장비에 대한 툴팁을 보여주는 기능
+    let tooltipFixed = null; // 현재 고정된 툴팁
+
+    $('.item-box').hover(function() {
+        if (tooltipFixed === null) {
+            $(this).find('.item-info').stop(true, true).fadeIn(200);
+        }
+    }, function() {
+        if (tooltipFixed !== $(this).find('.item-info')[0]) {
+            $(this).find('.item-info').stop(true, true).fadeOut(200);
+        }
+    }).click(function(event) {
+        event.stopPropagation(); // 클릭 이벤트가 document로 전파되지 않도록
+
+        // 현재 클릭된 툴팁을 고정
+        if (tooltipFixed === $(this).find('.item-info')[0]) {
+            $(this).find('.item-info').stop(true, true).fadeOut(200);
+            tooltipFixed = null;
+        } else {
+            // 모든 툴팁 숨기기
+            $('.item-info').stop(true, true).fadeOut(0);
+            // 새로운 툴팁 고정
+            $(this).find('.item-info').stop(true, true).fadeIn(0);
+            tooltipFixed = $(this).find('.item-info')[0];
+        }
+    });
+
+    // 클릭 외부 클릭 시 툴팁 닫기
+    $(document).click(function() {
+        if (tooltipFixed !== null) {
+            $('.item-info').stop(true, true).fadeOut(200);
+            tooltipFixed = null;
+        }
+    });
+} else {
+    $('#results').append("<p>장비 정보를 불러오는 데 실패했습니다.</p>");
+}
+
+// 5 번째 API 호출 - OCID로 캐릭터 사용 중 캐시 아이템 검색
+const cashData = await $.ajax({
+    method: 'GET',
+    url: `https://open.api.nexon.com/maplestory/v1/character/cashitem-equipment?ocid=${ocid}`,
+    headers: {
+        'accept': 'application/json',
+        'x-nxopen-api-key': API_KEY
+    }
+});
+
+// 캐시 아이템 데이터 처리
+const cacheData = cashData.cash_item_equipment_base;
+
+if (cacheData && Array.isArray(cacheData)) {
+    $('#results').append("<br>");
+    $('#results').append("<h2>캐시 아이템</h2>");
+    $('#results').append(`
+        <table>
+            <tr>
+                <td id="cash-반지4"></td><td id="cash-헤어"></td><td id="cash-모자"></td><td></td><td></td>
+            </tr>
+            <tr>
+                <td id="cash-반지3"></td><td id="cash-얼굴"></td><td id="cash-얼굴장식"></td><td></td><td></td>
+            </tr>
+            <tr>
+                <td id="cash-반지2"></td><td id="cash-피부"></td><td id="cash-눈장식"></td><td id="cash-귀고리"></td><td></td>
+            </tr>
+            <tr>
+                <td id="cash-반지1"></td><td id="cash-무기"></td><td id="cash-상의"></td><td></td><td id="cash-보조무기"></td>
+            </tr>
+            <tr>
+                <td></td><td></td><td id="cash-하의"></td><td id="cash-장갑"></td><td id="cash-망토"></td>
+            </tr>
+            <tr>
+                <td></td><td></td><td id="cash-신발"></td><td></td><td></td>
+            </tr>
+        </table>
+    `);
+
+    // 캐시 아이템을 테이블 셀에 배치하는 코드
+    cacheData.forEach(cache => {
+        const cellId = `cash-${cache.cash_item_equipment_slot}`; // 'cash-' 접두어를 추가하여 ID 생성
+        const cell = $(`#${cellId}`); // 접두어가 붙은 ID로 셀 선택
+
+        if (cell.length) {
+            // 설명이 있는 경우에만 설명 부분을 추가
+            const descriptionHtml = cache.cash_item_description ? `<br>${cache.cash_item_description}` : '';
+
+            const cacheHtml = `
+                <div class="item-box" style="position: relative; display: inline-block;">
+                    <img src="${cache.cash_item_icon}" alt="${cache.cash_item_name}" style="cursor: pointer;">
+                    <div class="tooltip">
+                        <strong>${cache.cash_item_name}</strong><br>
+                    </div>
+                </div>
+            `;
+            cell.html(cacheHtml);
+        }
+    });
+
+    // 이미지에 마우스 호버 시 상세 정보(툴팁) 표시
+    $('.item-box').hover(function() {
+        $(this).find('.tooltip').stop(true, true).fadeIn(200); // 마우스를 올리면 툴팁 표시
+    }, function() {
+        $(this).find('.tooltip').stop(true, true).fadeOut(200); // 마우스를 떼면 툴팁 숨김
+    });
+}
+
+
+// 6 번째 API 호출 - OCID로 캐릭터 사용 중 뷰티 아이템 검색
+const beautyData = await $.ajax({
+    method: 'GET',
+    url: `https://open.api.nexon.com/maplestory/v1/character/beauty-equipment?ocid=${ocid}`,
+    headers: {
+        'accept': 'application/json',
+        'x-nxopen-api-key': API_KEY
+    }
+});
+
+// 뷰티 아이템 데이터 처리
+const beautyItems = [
+    {
+        type: '헤어', 
+        data: beautyData.character_hair, 
+        imageUrl: beautyData.character_hair.icon_url || 'https://i.ibb.co/Qm48jx9/hair.png' // 헤어 아이템의 이미지 URL
+    },
+    {
+        type: '얼굴', 
+        data: beautyData.character_face, 
+        imageUrl: beautyData.character_face.icon_url || 'https://i.ibb.co/jrGKzXD/face.png' // 얼굴 아이템의 이미지 URL
+    },
+    {
+        type: '피부', 
+        data: beautyData.character_skin, 
+        imageUrl: beautyData.character_skin.icon_url || 'https://i.ibb.co/c1fnH29/skin.png' // 피부 아이템의 이미지 URL
+    }
+];
+
+beautyItems.forEach(item => {
+    const slotId = `cash-${item.type}`; // 5번에서 생성한 테이블의 ID 사용
+    const itemHtml = `
+        <div class="item-box" style="position:relative; display:inline-block;">
+            <img src="${item.imageUrl}" style="width:50px;" alt="${item.data[`${item.type.toLowerCase()}_name`] || ''}" title="${item.data[`${item.type.toLowerCase()}_name`] || ''}" data-info='${JSON.stringify(item.data)}'>
+            <div class="tooltip">
+                ${item.type === '헤어' ? `
+                    <strong>${item.data.hair_name || '없음'}</strong><br><br>
+                    ${item.data.mix_color ? `
+                        ${item.data.base_color || '없음'} ${item.data.mix_rate || 50} : ${item.data.mix_color || '없음'} ${100 - (item.data.mix_rate || 50)}
+                    ` : `
+                        ${item.data.base_color || '없음'}
+                    `}
+                ` : ''}
+                ${item.type === '얼굴' ? `
+                    <strong>${item.data.face_name || '없음'}</strong><br><br>
+                    ${item.data.mix_color ? `
+                        ${item.data.base_color || '없음'} ${item.data.mix_rate || 50} : ${item.data.mix_color || '없음'} ${100 - (item.data.mix_rate || 50)}
+                    ` : `
+                        ${item.data.base_color || '없음'}
+                    `}
+                ` : ''}
+                ${item.type === '피부' ? `
+                    <strong>${item.data.skin_name || '없음'}</strong>
+                ` : ''}
+            </div>
+        </div>
+    `;
+    $(`#${slotId}`).append(itemHtml);
+});
+
+// 이미지에 마우스 호버 시 상세 정보(툴팁) 표시
+$('.item-box').hover(function() {
+    $(this).find('.tooltip').stop(true, true).fadeIn(200); // 마우스를 올리면 툴팁 표시
+}, function() {
+    $(this).find('.tooltip').stop(true, true).fadeOut(200); // 마우스를 떼면 툴팁 숨김
+});
+
+
+            } catch (error) {
+            console.error("오류 발생 : ", error);
+            $('#results').append("<p>데이터를 가져오는 도중 오류가 발생했습니다.</p>");
+        }
+    }
+
+    function formatNumber(number) {
+        return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    $('#searchButton').on('click', fetchCharacterInfo);
+
+    $('#results').on('click', 'span', function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        document.activeElement.blur(); // 현재 포커스 제거
+    });
+
+
+    </script>
+
+</body>
+</html>
